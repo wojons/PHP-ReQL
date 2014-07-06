@@ -93,6 +93,10 @@ function json($json) {
     return new Json($json);
 }
 
+function http($url, $opts = null) {
+    return new Http($url, $opts);
+}
+
 function rObject($object)
 {
     return new RObject($object);
@@ -146,6 +150,10 @@ function le($expr1, $expr2) {
 
 function not($expr) {
     return new Not($expr);
+}
+
+function random($left = null, $right = null, $opts = null) {
+    return new Random($left, $right, $opts);
 }
 
 function now() {

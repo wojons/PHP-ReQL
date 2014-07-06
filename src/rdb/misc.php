@@ -8,27 +8,34 @@ abstract class Query
 
     protected function setOptionalArg($key, Query $val) {
         if (!is_string($key)) throw new RqlDriverError("Internal driver error: Got a non-string key for an optional argument.");
+        if ($val->_hasUnwrappedImplicitVar()) {
+            $this->unwrappedImplicitVar = true;
+        }
         $this->optionalArgs[$key] = $val;
     }
 
     protected function setPositionalArg($pos, Query $arg) {
         if (!is_numeric($pos)) throw new RqlDriverError("Internal driver error: Got a non-numeric position for a positional argument.");
+        if ($arg->_hasUnwrappedImplicitVar()) {
+            $this->unwrappedImplicitVar = true;
+        }
         $this->positionalArgs[$pos] = $arg;
     }
 
-    public function _getPBTerm() {
-        $term = new pb\Term();
-        $term->setType($this->getTermType());
+    public function _hasUnwrappedImplicitVar() {
+        return $this->unwrappedImplicitVar;
+    }
+
+    public function _getJSONTerm() {
+        $args = array();
         foreach ($this->positionalArgs as $i => $arg) {
-            $term->appendArgs($arg->_getPBTerm());
+            $args[] = $arg->_getJSONTerm();
         }
+        $optargs = array();
         foreach ($this->optionalArgs as $key => $val) {
-            $pair = new pb\Term_AssocPair();
-            $pair->setKey($key);
-            $pair->setVal($val->_getPBTerm());
-            $term->appendOptargs($pair);
+            $optargs[$key] = $val->_getJSONTerm();
         }
-        return $term;
+        return array($this->getTermType(), $args, (object)$optargs);
     }
 
     public function run(Connection $connection, $options = null) {
@@ -140,6 +147,7 @@ abstract class Query
 
     private $positionalArgs = array();
     private $optionalArgs = array();
+    private $unwrappedImplicitVar = false;
 }
 
 // This is just any query except for Table and Db at the moment.
@@ -410,6 +418,9 @@ abstract class ValuedQuery extends Query
     public function seconds() {
         return new Seconds($this);
     }
+    public function changes() {
+        return new Changes($this);
+    }
 }
 
 abstract class Ordering extends Query {
@@ -441,6 +452,10 @@ class ImplicitVar extends ValuedQuery
 {
     protected function getTermType() {
         return pb\Term_TermType::PB_IMPLICIT_VAR;
+    }
+    public function _hasUnwrappedImplicitVar() {
+        // A function wraps implicit variables
+        return true;
     }
 }
 
@@ -504,22 +519,20 @@ class Cursor implements \Iterator
         }
     }
     public function next() {
+        $this->requestMoreIfNecessary();
         if (!$this->valid()) throw new RqlDriverError("No more data available.");
         $this->wasIterated = true;
         $this->currentIndex++;
-        if ($this->currentIndex == $this->currentSize) {
-            // We are at the end of currentData. Request new if available
-            if (!$this->isComplete)
-                $this->requestNewBatch();
-        }
     }
     public function valid() {
+        $this->requestMoreIfNecessary();
         return !$this->isComplete || ($this->currentIndex < $this->currentSize);
     }
     public function key() {
         return null;
     }
     public function current() {
+        $this->requestMoreIfNecessary();
         if (!$this->valid()) throw new RqlDriverError("No more data available.");
         return $this->currentData[$this->currentIndex];
     }
@@ -556,9 +569,9 @@ class Cursor implements \Iterator
         return "Cursor";
     }
 
-    public function __construct(Connection $connection, pb\Response $initialResponse) {
+    public function __construct(Connection $connection, $initialResponse, $token) {
         $this->connection = $connection;
-        $this->token = $initialResponse->getToken();
+        $this->token = $token;
         $this->wasIterated = false;
 
         $this->setBatch($initialResponse);
@@ -571,19 +584,34 @@ class Cursor implements \Iterator
         }
     }
 
-    private function requestNewBatch() {
-        $response = $this->connection->_continueQuery($this->token);
-        $this->setBatch($response);
+    private function requestMoreIfNecessary() {
+        while ($this->currentIndex == $this->currentSize) {
+            // We are at the end of currentData. Request more if available
+            if ($this->isComplete) {
+                return;
+            }
+            $this->requestNewBatch();
+        }
     }
 
-    private function setBatch(pb\Response $response) {
-        $this->isComplete = $response->getType() == pb\Response_ResponseType::PB_SUCCESS_SEQUENCE;
+    private function requestNewBatch() {
+        try {
+            $response = $this->connection->_continueQuery($this->token);
+            $this->setBatch($response);
+        } catch (\Exception $e) {
+            $this->isComplete = true;
+            $this->close();
+            throw $e;
+        }
+    }
+
+    private function setBatch($response) {
+        $this->isComplete = $response['t'] == pb\Response_ResponseType::PB_SUCCESS_SEQUENCE;
         $this->currentIndex = 0;
-        $this->currentSize = $response->getResponseCount();
+        $this->currentSize = \count($response['r']);
         $this->currentData = array();
-        for ($i = 0; $i < $this->currentSize; ++$i) {
-            $datum = protobufToDatum($response->getResponseAt($i));
-            $this->currentData[$i] = $datum;
+        foreach ($response['r'] as $row) {
+            $this->currentData[] = $datum = decodedJSONToDatum($row);
         }
     }
 
