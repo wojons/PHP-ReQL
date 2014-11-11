@@ -81,6 +81,15 @@ function expr($obj) {
     return nativeToDatum($obj);
 }
 
+function binary($str) {
+    $encodedStr = base64_encode($str);
+    if ($encodedStr === FALSE) {
+        throw new RqlDriverError("Failed to Base64 encode '" . $str . "'");
+    }
+    $pseudo = array('$reql_type$' => 'BINARY', 'data' => $encodedStr);
+    return nativeToDatum($pseudo);
+}
+
 function desc($attribute) {
     return new Desc($attribute);
 }
@@ -231,6 +240,36 @@ function december() {
     return new December();
 }
 
+function geoJSON($geojson) {
+    return new GeoJSON($geojson);
+}
 
+function point($lat, $lon) {
+    return new Point($lat, $lon);
+}
+
+function line($points) {
+    return new Line($points);
+}
+
+function polygon($points) {
+    return new Polygon($points);
+}
+
+function circle($center, $radius, $opts = null) {
+    return new Circle($center, $radius, $opts);
+}
+
+function intersects($g1, $g2) {
+    return new Intersects($g1, $g2);
+}
+
+function distance($g1, $g2, $opts = null) {
+    return new Distance($g1, $g2, $opts);
+}
+
+function uuid() {
+    return new Uuid();
+}
 
 ?>

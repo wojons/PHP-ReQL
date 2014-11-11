@@ -76,6 +76,12 @@ class Table extends ValuedQuery
     public function getMultiple($keys, $opts = null) {
         return new GetMultiple($this, $keys, $opts);
     }
+    public function getIntersecting($geo, $opts = null) {
+        return new GetIntersecting($this, $geo, $opts);
+    }
+    public function getNearest($center, $opts = null) {
+        return new GetNearest($this, $center, $opts);
+    }
     public function sync() {
         return new Sync($this);
     }
@@ -84,6 +90,12 @@ class Table extends ValuedQuery
     }
     public function indexCreateMulti($indexName, $keyFunction = null) {
         return new IndexCreate($this, $indexName, $keyFunction, array('multi' => true));
+    }
+    public function indexCreateGeo($indexName, $keyFunction = null) {
+        return new IndexCreate($this, $indexName, $keyFunction, array('geo' => true));
+    }
+    public function indexCreateMultiGeo($indexName, $keyFunction = null) {
+        return new IndexCreate($this, $indexName, $keyFunction, array('multi' => true, 'geo' => true));
     }
     public function indexDrop($indexName) {
         return new IndexDrop($this, $indexName);

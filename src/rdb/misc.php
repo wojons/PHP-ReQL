@@ -223,8 +223,8 @@ abstract class ValuedQuery extends Query
     public function count($filter = null) {
         return new Count($this, $filter);
     }
-    public function distinct() {
-        return new Distinct($this);
+    public function distinct($opts = null) {
+        return new Distinct($this, $opts);
     }
     public function group($groupOn) {
         return new Group($this, $groupOn);
@@ -421,6 +421,24 @@ abstract class ValuedQuery extends Query
     public function changes() {
         return new Changes($this);
     }
+    public function toGeoJSON() {
+        return new ToGeoJSON($this);
+    }
+    public function intersects($g2) {
+        return new Intersects($this, $g2);
+    }
+    public function includes($g2) {
+        return new Includes($this, $g2);
+    }
+    public function distance($g2, $opts = null) {
+        return new Distance($this, $g2, $opts);
+    }
+    public function fill() {
+        return new Fill($this);
+    }
+    public function polygonSub($other) {
+        return new PolygonSub($this, $other);
+    }
 }
 
 abstract class Ordering extends Query {
@@ -563,6 +581,10 @@ class Cursor implements \Iterator
         $this->currentIndex = 0;
         $this->currentSize = 0;
         $this->currentData = array();
+    }
+
+    public function bufferedCount() {
+        $this->currentSize - $this->currentIndex;
     }
 
     public function __toString() {
