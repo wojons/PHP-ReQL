@@ -26,7 +26,7 @@ class Branch extends ValuedQuery
 {
     public function __construct(Query $test, $trueBranch, $falseBranch) {
         $trueBranch = nativeToDatum($trueBranch);
-        $falseBranch = nativeToDatum$falseBranch);
+        $falseBranch = nativeToDatum($falseBranch);
 
         $this->setPositionalArg(0, $test);
         $this->setPositionalArg(1, $trueBranch);
