@@ -5,7 +5,7 @@ require_once("util.php");
 require_once("function.php");
 
 function nativeToDatum($v) {
-    if (is_array($v) || (is_object($v) && get_class($v) == "stdClass")) {
+    if (is_array($v) || (is_object($v) && in_array(get_class($v), array("stdClass", "ArrayObject")))) {
         $datumArray = array();
         $hasNonNumericKey = false;
         $mustUseMakeTerm = false;
@@ -367,7 +367,7 @@ class ObjectDatum extends Datum
     }
 
     public function toNative() {
-        $native = new ArrayObject();
+        $native = new \ArrayObject();
         foreach ($this->getValue() as $key => $val) {
             $native[$key] = $val->toNative();
         }
